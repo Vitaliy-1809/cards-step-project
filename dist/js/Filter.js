@@ -11,12 +11,19 @@ export default class Filter extends Component {
             parent: document.querySelector('.main'),
             self: document.createElement('div'),
             container: document.createElement('form'),
-            searchBtn: document.createElement('button'),
             resetFilter: document.createElement('button')
         }
 
         super(elements, classes);
     }
+
+    filter = {
+        name: '',
+        doctor: '',
+        urgency: ''
+    }
+
+    filteredCards = [];
 
     clearFilterFields() {
         searchByContent.value = '';
@@ -31,10 +38,11 @@ export default class Filter extends Component {
 
     async reset(e) {
         e.preventDefault();
+        const cardContainer = document.querySelector('.card-container');
 
-        if (searchByContent.value !== '' || searchByDoctor.value !== 'Select doctor' || searchByUrgency.value !== 'Select urgency') {
-            const allCards = await API.getAllCards();
+        if (searchByContent.value !== '' || searchByDoctor.value !== 'Select doctor' || searchByUrgency.value !== 'Select urgency' || !cardContainer.firstChild) {
             const defaultText = document.querySelector('.default-text');
+            const allCards = await API.getAllCards();
 
             if (allCards.length === 0) {
                 defaultText.textContent = 'No items have been added';
@@ -48,58 +56,85 @@ export default class Filter extends Component {
         }
     }
 
-    showCards(result) {
-        if (result.length === 0) {
+    showCards() {
+        if (this.filteredCards.length === 0) {
             const defaultText = document.querySelector('.default-text');
             defaultText.textContent = 'No matches';
         } else {
-            result.forEach(card => new Card(cardClasses, card).render());
+            this.filteredCards.forEach(card => new Card(cardClasses, card).render());
         }
     }
 
-    async filter(e) {
-        e.preventDefault();
+    filterByName(item) {
+        if (this.filter.name !== '') {
+            return item.fullName.includes(this.filter.name)
+        } else {
+            return true
+        }
 
-        const searchByContent = document.querySelector('#search-content');
-        const searchByDoctor = document.querySelector('#search-doctor');
-        const searchByUrgency = document.querySelector('#search-urgency');
+    }
 
+    filterByDoctor(item) {
+        if (this.filter.doctor !== '') {
+            return item.doctorType === this.filter.doctor
+        } else {
+            return true
+        }
+    }
+
+    filterByUrgency(item) {
+        if (this.filter.urgency !== '') {
+            return item.urgencyType === this.filter.urgency
+        } else {
+            return true
+        }
+    }
+
+    async filterData() {
         const allCards = await API.getAllCards();
+        this.filteredCards = allCards
 
-        if (searchByContent.value !== '') {
-            const result = allCards.filter(item => item.fullName.toLowerCase().indexOf(searchByContent.value.toLowerCase()) > -1);
+            .filter(item => {
+                if (this.filterByName(item) === true) return item
+            })
 
-            this.clearCards();
-            this.showCards(result);
-        }
+            .filter(item => {
+                if (this.filterByDoctor(item) === true) return item
+            })
 
-        if (searchByDoctor.value !== 'Select doctor') {
-            const result = allCards.filter(item => item.doctorType === searchByDoctor.value);
+            .filter(item => {
+                if (this.filterByUrgency(item) === true) return item
+            })
 
-            this.clearCards();
-            this.showCards(result);
-        }
-
-        if (searchByUrgency.value !== 'Select urgency') {
-            const result = allCards.filter(item => item.urgencyType === searchByUrgency.value);
-
-            this.clearCards();
-            this.showCards(result);
-        }
+        this.clearCards();
+        this.showCards();
     }
 
     render() {
-        const { self, container, searchBtn, resetFilter } = this.elements;
-
-        searchBtn.textContent = 'Search';
-        resetFilter.textContent = 'All cards';
-
-        container.prepend(searchByContent, searchByDoctor, searchByUrgency, searchBtn, resetFilter);
-
+        const { self, container, resetFilter } = this.elements;
+        resetFilter.textContent = 'Reset filter';
+        container.prepend(searchByContent, searchByDoctor, searchByUrgency, resetFilter);
         self.prepend(container);
 
-        searchBtn.addEventListener('click', e => this.filter(e));
-        resetFilter.addEventListener('click', e => this.reset(e));
+        searchByContent.addEventListener('input', e => {
+            if (searchByContent.value === '') this.filter.name = ''
+            this.filter.name = e.target.value
+            this.filterData()
+        });
+
+        searchByDoctor.addEventListener('change', e => {
+            this.filter.doctor = e.target.value
+            this.filterData()
+        });
+
+        searchByUrgency.addEventListener('change', e => {
+            this.filter.urgency = e.target.value
+            this.filterData()
+        });
+
+        resetFilter.addEventListener('click', e => {
+            this.reset(e)
+        });
 
         super.render();
     }
